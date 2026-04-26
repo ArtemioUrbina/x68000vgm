@@ -3,6 +3,7 @@ X68000 Quick Hack VGM player
 This is just a small VGM player made for fun. For a feature rich VGM player for X68000 you can use VGMDRV (https://sites.google.com/site/waveknife7/vgmdrv).
 
 - Playback via interrupts
+- Supports YM2151 and OKI
 - Can play VGMs from other systems, ignoring DAC commands (playing YM2151 only)
 - Support for VGZ files, if compiled against tinf (tiny inflate library https://github.com/jibsen/tinf)
 - Based on examples by FedericoTech: https://github.com/FedericoTech/X68KTutorials/
