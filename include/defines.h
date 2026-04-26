@@ -69,6 +69,7 @@
 #define OKI6258_REG                 0xE92001
 #define OKI6258_DATA                0xE92003
 
+#define MFP_ADDR                    0xE88015
 
 typedef struct {
     char        ident[4];

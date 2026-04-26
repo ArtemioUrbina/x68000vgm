@@ -24,6 +24,11 @@ int main(int argc, char *argv[])
     int16_t         file = 0, keypress = 0;
     VGMHEADER       header;
     adpcm_samples   samples[MAX_SAMPLES];
+    void            *old_opm_vector = NULL;
+    uint8_t         mfp_imrb_old = 0;
+    uint8_t         mfp_ierb_old = 0;
+    volatile uint8_t *MFP_IERB = (uint8_t *)0xE88009; // Interrupt Enable
+    volatile uint8_t *MFP_IMRB = (uint8_t *)0xE88015; // Interrupt Mask
 
     printf("Quick Hack VGM player 1.0 for X68000 by Artemio Urbina 2026\n");
 
@@ -125,9 +130,20 @@ int main(int argc, char *argv[])
     if(_iocs_adpcmsns() != ADPCM_STATUS_IDLE)
         _iocs_adpcmmod(ADPCM_CTRL_END);
 
-    // Assign Timer Interrupt 12.5us * 40 = 500us (0.5ms)
-    _iocs_timerdst(timer_handler, 4, 40);  // 500 us
+    // OPM  X68000 Vector $43 (YM2151 Interrupt)
+    old_opm_vector = (void *)_iocs_b_intvcs(0x43, (void *)opm_timer_handler);
 
+    // Unmask FM interrupt in the X68000 MFP (Bit 3 of IERA)
+    mfp_ierb_old = *MFP_IERB;
+    mfp_imrb_old = *MFP_IMRB;
+    *MFP_IERB = mfp_ierb_old | 0x08; 
+    *MFP_IMRB = mfp_imrb_old | 0x08;
+
+    // Timer A for 1008us (Count = 63 / 0x3C1 inverse)
+    YM2151_writeReg(0x10, 0xF0); // Timer A MSB
+    YM2151_writeReg(0x11, 0x01); // Timer A LSB
+    YM2151_writeReg(0x14, 0x15);
+    
     do {
         uint8_t command = 0;
         static uint8_t prev_grp0 = 0;
@@ -177,8 +193,11 @@ int main(int argc, char *argv[])
 
                 reg = vgm[pos++];
                 data = vgm[pos++];
-                if(fm)
-                    YM2151_writeReg(reg, data);
+                if(fm) {
+                    // Block VGM from overwriting OPM timer registers
+                    if (!(reg >= 0x10 && reg <= 0x14))
+                        YM2151_writeReg(reg, data);
+                }
             }
             break;
             case 0x61: { // Wait nn nn
@@ -359,7 +378,10 @@ int main(int argc, char *argv[])
         }
     } while(pos < vgmSize && !end);
 
-    _iocs_timerdst(NULL, 0, 0);
+    YM2151_writeReg(0x14, 0x00);
+    *MFP_IMRB = mfp_imrb_old;
+    *MFP_IERB = mfp_ierb_old;
+    _iocs_b_intvcs(0x43, old_opm_vector);
 
     _iocs_adpcmmod(ADPCM_CTRL_END);
     YM2151_mute();

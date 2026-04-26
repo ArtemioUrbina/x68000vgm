@@ -11,5 +11,5 @@ void readuint32_t(uint32_t *target, uint8_t *src, uint32_t *pos);
 void readuint16_t(uint16_t *target, uint8_t *src, uint32_t *pos);
 void swapHeader(VGMHEADER *header);
 
-void interrupt timer_handler();
+void interrupt opm_timer_handler();
 void flush_keyboard(void);

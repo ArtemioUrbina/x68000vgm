@@ -5,6 +5,8 @@
 
 extern volatile uint32_t system_samples;
 
+volatile uint8_t current_ym2151_reg = 0;
+
 void YM2151_writeReg(uint8_t reg, uint8_t data) {
     volatile uint8_t *regPTR, *dataPTR;
 
@@ -14,6 +16,8 @@ void YM2151_writeReg(uint8_t reg, uint8_t data) {
     //wait BUSY
     while(*dataPTR & 0x80)
         ;
+    // save register so that we can restore it in the interrupt
+    current_ym2151_reg = reg;
     *regPTR = reg;
     //wait BUSY
     while(*dataPTR & 0x80)
@@ -60,19 +64,19 @@ uint32_t selectMSM6258Freq(uint32_t target_freq){
 }
 
 void swapHeader(VGMHEADER *header) {
-    header->EOFoffset = swap_uint32_t(header->EOFoffset);
-    header->version = swap_uint32_t(header->version);
-    header->SN76489_clock = swap_uint32_t(header->SN76489_clock);
-    header->YM2314_clock = swap_uint32_t(header->YM2314_clock);
-    header->GD3_offset = swap_uint32_t(header->GD3_offset);
-    header->total_samples = swap_uint32_t(header->total_samples);
-    header->loop_offset = swap_uint32_t(header->loop_offset);
-    header->loop_samples = swap_uint32_t(header->loop_samples);
-    header->rate = swap_uint32_t(header->rate);
-    header->SN76489_feedback = swap_uint16_t(header->SN76489_feedback);
-    header->YM2612_clock = swap_uint32_t(header->YM2612_clock);
-    header->YM2151_clock = swap_uint32_t(header->YM2151_clock);
-    header->VGM_data_offset = swap_uint32_t(header->VGM_data_offset);
+    header->EOFoffset           = swap_uint32_t(header->EOFoffset);
+    header->version             = swap_uint32_t(header->version);
+    header->SN76489_clock       = swap_uint32_t(header->SN76489_clock);
+    header->YM2314_clock        = swap_uint32_t(header->YM2314_clock);
+    header->GD3_offset          = swap_uint32_t(header->GD3_offset);
+    header->total_samples       = swap_uint32_t(header->total_samples);
+    header->loop_offset         = swap_uint32_t(header->loop_offset);
+    header->loop_samples        = swap_uint32_t(header->loop_samples);
+    header->rate                = swap_uint32_t(header->rate);
+    header->SN76489_feedback    = swap_uint16_t(header->SN76489_feedback);
+    header->YM2612_clock        = swap_uint32_t(header->YM2612_clock);
+    header->YM2151_clock        = swap_uint32_t(header->YM2151_clock);
+    header->VGM_data_offset     = swap_uint32_t(header->VGM_data_offset);
 }
 
 void readuint32_t(uint32_t *target, uint8_t *src, uint32_t *pos) {
@@ -87,15 +91,25 @@ void readuint16_t(uint16_t *target, uint8_t *src, uint32_t *pos) {
     *pos += sizeof(uint16_t);
 }
 
-void interrupt timer_handler() {
-    static int fraction = 0;
+void interrupt opm_timer_handler() {
+    static uint32_t fraction = 0;
+    
+    // 1008us tick = exactly 44.4528 samples
+    fraction += 4528;
+    system_samples += 44 + (fraction / 10000);
+    fraction %= 10000;
 
-    system_samples += 22;
-    fraction ++;
-    if(fraction >= 20) {
-        system_samples ++;
-        fraction = 0;
-    }
+    // Reset the timer and restore the address latch
+    volatile uint8_t *regPTR = (volatile uint8_t*) YM2151_REG;
+    volatile uint8_t *dataPTR = (volatile uint8_t*) YM2151_DATA;
+    
+    *regPTR = 0x14;
+    *dataPTR = 0x15;
+    *regPTR = current_ym2151_reg;
+
+    // Acknowledge the X68000 MFP Hardware Interrupt
+    volatile uint8_t *MFP_ISRB = (uint8_t *)0xE88011;
+    *MFP_ISRB = 0xF7;
 }
 
 void flush_keyboard(void) {
