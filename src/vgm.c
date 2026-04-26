@@ -30,7 +30,7 @@ int main(int argc, char *argv[])
     volatile uint8_t *MFP_IERB = (uint8_t *)0xE88009; // Interrupt Enable
     volatile uint8_t *MFP_IMRB = (uint8_t *)0xE88015; // Interrupt Mask
 
-    printf("Quick Hack VGM player 1.0 for X68000 by Artemio Urbina 2026\n");
+    printf("Quick Hack VGM player 1.01 for X68000 by Artemio Urbina 2026\n");
 
     if(argc < 2) {
         printf("Please define a VGM file\n");
