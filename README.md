@@ -12,7 +12,7 @@ This is just a small VGM player made for fun. For a feature rich VGM player for 
 - Originally based on MDFourier for X68000: https://github.com/ArtemioUrbina/mdf-x68000
 
 Usage:
-- vgm <file> [r]
+- vgm file [r]
 - Optional r parameter for repeat
 - ESC or CTRL-C to exit
 - 1 to turn FM on and off
